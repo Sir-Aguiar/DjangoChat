@@ -1,7 +1,23 @@
 from django.db import models
 
 # Create your models here.
-class  Message (models.Model):
+class Room(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+    
+    def __str__(self):
+        return self.name
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Sala'
+        verbose_name_plural = 'Salas'
+
+
+class Message(models.Model):
+    room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='messages')
     sender = models.CharField(max_length=25)
     content = models.TextField()
     timestamp = models.DateTimeField(auto_now_add=True)
