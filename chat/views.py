@@ -70,7 +70,6 @@ def join_room(request, room_id):
     # Salva o room_id na sessão
     request.session['room_id'] = room_id
     
-    messages.success(request, f'Bem-vindo à sala {room.name}!')
     return redirect('chat:room_detail', room_id=room_id)
 
 
