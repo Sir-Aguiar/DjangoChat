@@ -17,9 +17,9 @@ class RoomAdmin(admin.ModelAdmin):
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
-    list_display = ('sender', 'room', 'content_preview', 'timestamp')
+    list_display = ('user', 'room', 'content_preview', 'timestamp')
     list_filter = ('room', 'timestamp')
-    search_fields = ('sender', 'content')
+    search_fields = ('user__username', 'user__first_name', 'content')
     ordering = ('-timestamp',)
     
     def content_preview(self, obj):
