@@ -4,13 +4,19 @@ from channels.db import database_sync_to_async
 from django.contrib.auth.models import User
 from .models import Room, Message
 
+"""
+    -> Usuário se conecta a uma sala de chat via WebSocket
+    -> Ele é conectado diretamente à um grupo (neste caso a sala)
+    -> Mensagens enviadas pelo usuário são salvas no banco de dados
+    -> As mensagens são enviadas para todos os usuários conectados ao grupo
+    <O mesmo acontece quando uma mensagem é recebida do grupo>
+"""
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.room_id = self.scope["url_route"]["kwargs"]["room_id"]
         self.room_group_name = f"chat_{self.room_id}"
 
-        # Obtém o usuário da sessão
         self.user = self.scope["user"]
 
         # Adiciona o canal ao grupo da sala
@@ -19,7 +25,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         await self.accept()
 
     async def disconnect(self, close_code):
-        # Remove o canal do grupo da sala
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
     # Recebe mensagem do WebSocket
@@ -27,7 +32,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
         text_data_json = json.loads(text_data)
         message = text_data_json["message"]
 
-        # Salva a mensagem no banco de dados
         saved_message = await self.save_message(message)
 
         # Envia mensagem para o grupo da sala

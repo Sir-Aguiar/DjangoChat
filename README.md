@@ -127,21 +127,9 @@ daphne djangochat.asgi:application
 
 ## 📝 Próximas Melhorias
 
-- [ ] Usar Redis para Channel Layer (produção)
-- [ ] Sistema de notificações
 - [ ] Upload de imagens
-- [ ] Emojis e reações
 - [ ] Typing indicators (indicador de digitação)
-- [ ] Número de usuários online
-- [ ] Histórico paginado de mensagens
 - [ ] Busca de mensagens
-- [ ] Salas privadas
-- [ ] Sistema de autenticação completo
 
-## 📄 Licença
+# Tecnologias
 
-Este projeto foi desenvolvido para fins educacionais.
-
----
-
-**Desenvolvido com ❤️ usando Django e Django Channels**

@@ -4,8 +4,6 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 
 
 class SignUpForm(UserCreationForm):
-    """Formulário de cadastro com nome completo, username e senha"""
-
     first_name = forms.CharField(
         max_length=150,
         required=True,
@@ -53,14 +51,12 @@ class SignUpForm(UserCreationForm):
         fields = ("first_name", "username", "password1", "password2")
 
     def clean_username(self):
-        """Valida se o username já não existe"""
         username = self.cleaned_data.get("username")
         if User.objects.filter(username=username).exists():
             raise forms.ValidationError("Este nome de usuário já está em uso.")
         return username
 
     def save(self, commit=True):
-        """Salva o usuário com o nome completo"""
         user = super().save(commit=False)
         user.first_name = self.cleaned_data["first_name"]
         if commit:
@@ -69,8 +65,6 @@ class SignUpForm(UserCreationForm):
 
 
 class SignInForm(AuthenticationForm):
-    """Formulário de login personalizado"""
-
     username = forms.CharField(
         max_length=150,
         widget=forms.TextInput(
