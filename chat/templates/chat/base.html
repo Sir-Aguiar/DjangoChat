@@ -33,6 +33,12 @@
                 <!-- Lado Esquerdo -->
                 <div class="flex items-center space-x-8">
                     {% if user.is_authenticated %}
+                    <a href="{% url 'chat:room_list' %}" class="text-sm font-semibold hover:opacity-80 transition-all" style="color: #e5e5e5;">
+                        Salas
+                    </a>
+                    <a href="{% url 'chat:direct_messages' %}" class="text-sm font-semibold hover:opacity-80 transition-all" style="color: #e5e5e5;">
+                        Mensagens
+                    </a>
                     <span class="text-sm" style="color: #e5e5e5;">
                         Olá, <strong style="color: #fca311;">{{ user.first_name|default:user.username }}</strong>
                     </span>

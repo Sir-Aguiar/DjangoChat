@@ -1,0 +1,388 @@
+{% extends 'chat/base.html' %}
+
+{% block title %}Mensagens Diretas - Django Chat{% endblock %}
+
+{% block content %}
+<div class="flex" style="height: calc(100vh - 80px); background-color: #e5e5e5;">
+  <!-- Barra Lateral de Contatos -->
+  <div class="flex flex-col" style="width: 328px; background-color: #14213d; border-right: 2px solid #fca311;">
+    <!-- Campo de Pesquisa -->
+    <div class="p-4" style="border-bottom: 2px solid #fca311;">
+      <div class="relative">
+        <input type="text" id="user-search" placeholder="Pesquisar usuário..."
+          class="w-full px-4 py-3 pr-10 focus:outline-none focus:ring-2 transition-all"
+          style="background-color: #0e1116; color: #e5e5e5; border: 1px solid #fca311; border-radius: 8px; focus:ring-color: #fca311;" />
+        <svg class="absolute right-3 top-3.5 h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+          style="color: #fca311;">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+        </svg>
+      </div>
+
+      <!-- Resultados da Pesquisa -->
+      <div id="search-results" class="mt-2 hidden"
+        style="background-color: #0e1116; border-radius: 8px; max-height: 200px; overflow-y: auto;">
+        <!-- Resultados serão inseridos aqui via JavaScript -->
+      </div>
+    </div>
+
+    <!-- Lista de Conversas -->
+    <div class="flex-1 overflow-y-auto" style="background-color: #14213d;">
+      <div id="conversations-list" class="divide-y" style="border-color: #0e1116;">
+        <!-- Conversas serão carregadas aqui via JavaScript -->
+        <div class="p-6 text-center" style="color: #e5e5e5;">
+          <svg class="mx-auto h-12 w-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+            style="color: #fca311;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z">
+            </path>
+          </svg>
+          <p class="text-sm">Pesquise um usuário para iniciar uma conversa</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Área de Chat -->
+  <div class="flex-1 flex flex-col">
+    <!-- Header do Chat (inicialmente oculto) -->
+    <div id="chat-header" class="hidden bg-white shadow-lg p-6" style="border-bottom: 2px solid #fca311;">
+      <div class="flex items-center space-x-4">
+        <div class="flex items-center justify-center h-12 w-12 rounded-full font-bold text-white"
+          style="background-color: #fca311;">
+          <span id="recipient-initial">U</span>
+        </div>
+        <div class="flex-1">
+          <h2 id="recipient-name" class="text-xl font-bold" style="color: #0e1116;">Selecione um usuário</h2>
+          <div class="flex items-center space-x-2 mt-1">
+            <div id="connection-status" class="h-2 w-2 rounded-full bg-gray-400"></div>
+            <span id="connection-text" class="text-sm text-gray-500">Desconectado</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mensagem de Boas-vindas (quando nenhum chat está aberto) -->
+    <div id="welcome-screen" class="flex-1 flex items-center justify-center" style="background-color: #e5e5e5;">
+      <div class="text-center">
+        <div class="flex justify-center mb-4">
+          <svg class="h-24 w-24" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="color: #fca311;">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z">
+            </path>
+          </svg>
+        </div>
+        <h2 class="text-2xl font-bold mb-2" style="color: #0e1116;">Suas Mensagens</h2>
+        <p class="text-lg" style="color: #14213d;">Pesquise um usuário para iniciar uma conversa</p>
+      </div>
+    </div>
+
+    <!-- Área de Mensagens (inicialmente oculta) -->
+    <div id="chat-area" class="hidden flex-1 flex flex-col" style="overflow: hidden;">
+      <div class="flex-1 overflow-y-auto p-6 space-y-4" id="chat-messages" style="background-color: #e5e5e5; overflow-y: auto;">
+        <!-- Mensagens serão inseridas aqui -->
+      </div>
+
+      <!-- Input de Mensagem -->
+      <div class="bg-white shadow-lg p-6" style="border-top: 2px solid #fca311;">
+        <form id="chat-form" class="flex space-x-3">
+          <input type="text" id="chat-message-input" placeholder="Digite sua mensagem..."
+            class="flex-1 px-4 py-3 focus:outline-none focus:ring-2 transition-all"
+            style="background-color: #e5e5e5; color: #0e1116; border: 1px solid #14213d; border-radius: 8px;"
+            autocomplete="off" />
+          <button type="submit" class="px-6 py-3 font-semibold rounded-lg transition-all hover:opacity-90"
+            style="background-color: #fca311; color: #0e1116;">
+            <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+            </svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const currentUserId = {{ user.id }};
+  const currentUsername = '{{ user.username }}';
+  let chatSocket = null;
+  let currentRecipientId = null;
+  let conversations = new Map(); // Armazena conversas carregadas
+
+  // Elementos DOM
+  const userSearchInput = document.querySelector('#user-search');
+  const searchResults = document.querySelector('#search-results');
+  const conversationsList = document.querySelector('#conversations-list');
+  const welcomeScreen = document.querySelector('#welcome-screen');
+  const chatArea = document.querySelector('#chat-area');
+  const chatHeader = document.querySelector('#chat-header');
+  const chatMessages = document.querySelector('#chat-messages');
+  const messageInput = document.querySelector('#chat-message-input');
+  const messageForm = document.querySelector('#chat-form');
+  const recipientInitial = document.querySelector('#recipient-initial');
+  const recipientName = document.querySelector('#recipient-name');
+  const connectionStatus = document.querySelector('#connection-status');
+  const connectionText = document.querySelector('#connection-text');
+
+  // Debounce para pesquisa
+  let searchTimeout;
+  userSearchInput.addEventListener('input', function () {
+    clearTimeout(searchTimeout);
+    const query = this.value.trim();
+
+    if (query.length === 0) {
+      searchResults.classList.add('hidden');
+      return;
+    }
+
+    searchTimeout = setTimeout(() => searchUsers(query), 300);
+  });
+
+  // Pesquisar usuários
+  async function searchUsers(query) {
+    try {
+      const response = await fetch(`/api/search-users/?q=${encodeURIComponent(query)}`);
+      const users = await response.json();
+
+      if (users.length === 0) {
+        searchResults.innerHTML = '<div class="p-3 text-center" style="color: #e5e5e5;">Nenhum usuário encontrado</div>';
+        searchResults.classList.remove('hidden');
+        return;
+      }
+
+      searchResults.innerHTML = users.map(user => `
+                <div class="p-3 cursor-pointer hover:bg-opacity-80 transition-all" 
+                     style="background-color: #14213d; color: #e5e5e5;"
+                     onclick="openChat(${user.id}, '${user.username}', '${user.first_name}')">
+                    <div class="flex items-center space-x-3">
+                        <div class="flex items-center justify-center h-10 w-10 rounded-full font-bold text-white" style="background-color: #fca311;">
+                            ${user.first_name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                            <p class="font-semibold">${user.first_name}</p>
+                            <p class="text-sm opacity-75">@${user.username}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+      searchResults.classList.remove('hidden');
+    } catch (error) {
+      console.error('Erro ao pesquisar usuários:', error);
+    }
+  }
+
+  // Carregar conversas existentes
+  async function loadConversations() {
+    try {
+      const response = await fetch('/api/conversations/');
+      const convs = await response.json();
+
+      if (convs.length === 0) {
+        return;
+      }
+
+      conversationsList.innerHTML = convs.map(conv => `
+                <div class="p-4 cursor-pointer hover:bg-opacity-80 transition-all" 
+                     data-user-id="${conv.user_id}"
+                     style="background-color: ${conv.has_unread ? '#0e1116' : 'transparent'};"
+                     onclick="openChat(${conv.user_id}, '${conv.username}', '${conv.first_name}')">
+                    <div class="flex items-center space-x-3">
+                        <div class="relative">
+                            <div class="flex items-center justify-center h-12 w-12 rounded-full font-bold text-white" style="background-color: #fca311;">
+                                ${conv.first_name.charAt(0).toUpperCase()}
+                            </div>
+                            ${conv.has_unread ? '<div class="absolute top-0 right-0 h-3 w-3 rounded-full" style="background-color: #fca311;"></div>' : ''}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold truncate" style="color: #e5e5e5;">${conv.first_name}</p>
+                            <p class="text-sm truncate" style="color: #e5e5e5; opacity: 0.75;">${conv.last_message || 'Iniciar conversa'}</p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+    } catch (error) {
+      console.error('Erro ao carregar conversas:', error);
+    }
+  }
+
+  // Abrir chat com usuário
+  function openChat(userId, username, firstName) {
+    if (userId === currentUserId) {
+      alert('Você não pode enviar mensagens para si mesmo!');
+      return;
+    }
+
+    // Fechar conexão anterior se existir
+    if (chatSocket) {
+      chatSocket.close();
+    }
+
+    currentRecipientId = userId;
+
+    // Limpar pesquisa
+    userSearchInput.value = '';
+    searchResults.classList.add('hidden');
+
+    // Atualizar UI
+    welcomeScreen.classList.add('hidden');
+    chatArea.classList.remove('hidden');
+    chatHeader.classList.remove('hidden');
+    recipientInitial.textContent = firstName.charAt(0).toUpperCase();
+    recipientName.textContent = firstName;
+    chatMessages.innerHTML = '';
+
+    // Conectar WebSocket
+    connectWebSocket();
+
+    // Carregar histórico de mensagens
+    loadMessageHistory(userId);
+
+    // Adicionar à lista de conversas se não existir
+    addToConversationsList(userId, username, firstName);
+  }
+
+  // Conectar ao WebSocket
+  function connectWebSocket() {
+    chatSocket = new WebSocket(
+      'ws://' + window.location.host + '/ws/chat/direct/'
+    );
+
+    chatSocket.onopen = function () {
+      updateConnectionStatus(true);
+    };
+
+    chatSocket.onmessage = function (e) {
+      const data = JSON.parse(e.data);
+
+      if (data.type === 'direct') {
+        // Verificar se a mensagem é do usuário atual ou do destinatário
+        if (data.user_id === currentRecipientId || data.user_id === currentUserId) {
+          addMessage(data);
+        }
+      }
+    };
+
+    chatSocket.onclose = function () {
+      updateConnectionStatus(false);
+    };
+
+    chatSocket.onerror = function (error) {
+      console.error('WebSocket error:', error);
+      updateConnectionStatus(false);
+    };
+  }
+
+  // Atualizar status de conexão
+  function updateConnectionStatus(isConnected) {
+    if (isConnected) {
+      connectionStatus.style.backgroundColor = '#10b981';
+      connectionText.textContent = 'Online';
+      connectionText.style.color = '#10b981';
+    } else {
+      connectionStatus.style.backgroundColor = '#ef4444';
+      connectionText.textContent = 'Desconectado';
+      connectionText.style.color = '#ef4444';
+    }
+  }
+
+  // Adicionar mensagem ao chat
+  function addMessage(data) {
+    const isCurrentUser = data.user_id === currentUserId;
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `flex ${isCurrentUser ? 'justify-end' : 'justify-start'}`;
+
+    const time = new Date(data.timestamp).toLocaleTimeString('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    messageDiv.innerHTML = `
+            <div class="max-w-xs lg:max-w-md px-4 py-3 shadow-md" 
+                 style="background-color: ${isCurrentUser ? '#fca311' : '#ffffff'}; 
+                        color: ${isCurrentUser ? '#0e1116' : '#14213d'}; 
+                        border-radius: 8px;">
+                ${!isCurrentUser ? `<p class="font-semibold text-sm mb-1">${data.username}</p>` : ''}
+                <p class="break-words">${data.message}</p>
+                <p class="text-xs mt-1 opacity-75">${time}</p>
+            </div>
+        `;
+
+    chatMessages.appendChild(messageDiv);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+  }
+
+  // Carregar histórico de mensagens
+  async function loadMessageHistory(userId) {
+    try {
+      const response = await fetch(`/api/messages/direct/${userId}/`);
+      const messages = await response.json();
+
+      messages.forEach(msg => {
+        addMessage({
+          user_id: msg.user_id,
+          username: msg.username,
+          message: msg.content,
+          timestamp: msg.timestamp
+        });
+      });
+    } catch (error) {
+      console.error('Erro ao carregar histórico:', error);
+    }
+  }
+
+  // Adicionar à lista de conversas
+  function addToConversationsList(userId, username, firstName) {
+    // Verificar se já existe
+    const existing = conversationsList.querySelector(`[data-user-id="${userId}"]`);
+    if (existing) {
+      return;
+    }
+
+    const convDiv = document.createElement('div');
+    convDiv.setAttribute('data-user-id', userId);
+    convDiv.className = 'p-4 cursor-pointer hover:bg-opacity-80 transition-all';
+    convDiv.onclick = () => openChat(userId, username, firstName);
+
+    convDiv.innerHTML = `
+            <div class="flex items-center space-x-3">
+                <div class="flex items-center justify-center h-12 w-12 rounded-full font-bold text-white" style="background-color: #fca311;">
+                    ${firstName.charAt(0).toUpperCase()}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold truncate" style="color: #e5e5e5;">${firstName}</p>
+                    <p class="text-sm truncate" style="color: #e5e5e5; opacity: 0.75;">Iniciar conversa</p>
+                </div>
+            </div>
+        `;
+
+    // Se a lista só tem a mensagem de boas-vindas, limpar
+    if (conversationsList.querySelector('.text-center')) {
+      conversationsList.innerHTML = '';
+    }
+
+    conversationsList.insertBefore(convDiv, conversationsList.firstChild);
+  }
+
+  // Enviar mensagem
+  messageForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const message = messageInput.value.trim();
+    if (!message || !currentRecipientId || !chatSocket) {
+      return;
+    }
+
+    chatSocket.send(JSON.stringify({
+      'type': 'direct',
+      'message': message,
+      'user_to_id': currentRecipientId
+    }));
+
+    messageInput.value = '';
+  });
+
+  // Carregar conversas ao iniciar
+  loadConversations();
+</script>
+{% endblock %}

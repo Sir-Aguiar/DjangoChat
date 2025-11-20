@@ -2,7 +2,10 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
-from .models import Room
+from django.http import JsonResponse
+from django.contrib.auth.models import User
+from django.db.models import Q, Max
+from .models import Room, Message
 from .forms import SignUpForm, SignInForm
 
 # Create your views here.
@@ -106,3 +109,112 @@ def leave_room(request):
 
     messages.info(request, "Você saiu da sala.")
     return redirect("chat:room_list")
+
+
+@login_required(login_url="chat:signin")
+def direct_messages(request):
+    """Exibe a página de mensagens diretas"""
+    return render(request, "chat/direct_messages.html")
+
+
+@login_required(login_url="chat:signin")
+def search_users(request):
+    """API para pesquisar usuários"""
+    query = request.GET.get("q", "").strip()
+    
+    if not query:
+        return JsonResponse([], safe=False)
+    
+    # Pesquisar usuários (excluindo o próprio usuário)
+    users = User.objects.filter(
+        Q(username__icontains=query) | Q(first_name__icontains=query)
+    ).exclude(id=request.user.id)[:10]
+    
+    users_data = [
+        {
+            "id": user.id,
+            "username": user.username,
+            "first_name": user.first_name or user.username,
+        }
+        for user in users
+    ]
+    
+    return JsonResponse(users_data, safe=False)
+
+
+@login_required(login_url="chat:signin")
+def get_conversations(request):
+    """API para obter lista de conversas do usuário"""
+    # Buscar todas as mensagens diretas do usuário (enviadas ou recebidas)
+    messages_query = Message.objects.filter(
+        Q(user=request.user, user_to__isnull=False) |
+        Q(user_to=request.user)
+    ).select_related('user', 'user_to')
+    
+    # Agrupar por usuário e pegar a última mensagem
+    conversations = {}
+    for msg in messages_query:
+        # Determinar o outro usuário na conversa
+        other_user = msg.user_to if msg.user == request.user else msg.user
+        
+        if other_user.id not in conversations:
+            conversations[other_user.id] = {
+                "user_id": other_user.id,
+                "username": other_user.username,
+                "first_name": other_user.first_name or other_user.username,
+                "last_message": msg.content[:50],
+                "timestamp": msg.timestamp,
+                "has_unread": False
+            }
+        else:
+            # Atualizar se esta mensagem for mais recente
+            if msg.timestamp > conversations[other_user.id]["timestamp"]:
+                conversations[other_user.id]["last_message"] = msg.content[:50]
+                conversations[other_user.id]["timestamp"] = msg.timestamp
+        
+        # Verificar se há mensagens não lidas
+        if msg.user_to == request.user and not msg.is_read:
+            conversations[other_user.id]["has_unread"] = True
+    
+    # Converter para lista e ordenar por timestamp
+    conversations_list = list(conversations.values())
+    conversations_list.sort(key=lambda x: x["timestamp"], reverse=True)
+    
+    # Converter timestamp para string
+    for conv in conversations_list:
+        conv["timestamp"] = conv["timestamp"].isoformat()
+    
+    return JsonResponse(conversations_list, safe=False)
+
+
+@login_required(login_url="chat:signin")
+def get_direct_messages(request, user_id):
+    """API para obter histórico de mensagens diretas com um usuário"""
+    other_user = get_object_or_404(User, id=user_id)
+    
+    # Buscar mensagens entre os dois usuários
+    messages_query = Message.objects.filter(
+        (Q(user=request.user, user_to=other_user) |
+         Q(user=other_user, user_to=request.user))
+    ).select_related('user').order_by('timestamp')[:100]
+    
+    # Marcar mensagens como lidas
+    Message.objects.filter(
+        user=other_user,
+        user_to=request.user,
+        is_read=False
+    ).update(is_read=True)
+    
+    messages_data = [
+        {
+            "id": msg.id,
+            "user_id": msg.user.id,
+            "username": msg.user.username,
+            "content": msg.content,
+            "timestamp": msg.timestamp.isoformat(),
+            "is_read": msg.is_read
+        }
+        for msg in messages_query
+    ]
+    
+    return JsonResponse(messages_data, safe=False)
