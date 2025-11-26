@@ -8,19 +8,16 @@ from django.db.models import Q, Max
 from .models import Room, Message
 from .forms import SignUpForm, SignInForm
 
-# Create your views here.
-
 
 def signup_view(request):
-    """View de cadastro de novos usuários"""
     if request.user.is_authenticated:
         return redirect("chat:room_list")
 
     if request.method == "POST":
         form = SignUpForm(request.POST)
+
         if form.is_valid():
             user = form.save()
-            # Faz login automático após o cadastro
             login(request, user)
             messages.success(
                 request,
@@ -34,7 +31,6 @@ def signup_view(request):
 
 
 def signin_view(request):
-    """View de login de usuários"""
     if request.user.is_authenticated:
         return redirect("chat:room_list")
 
@@ -47,7 +43,6 @@ def signin_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f"Bem-vindo de volta, {user.first_name}!")
-                # Redireciona para a próxima página ou para a lista de salas
                 next_page = request.GET.get("next", "chat:room_list")
                 return redirect(next_page)
     else:
@@ -57,7 +52,6 @@ def signin_view(request):
 
 
 def logout_view(request):
-    """View de logout"""
     logout(request)
     messages.info(request, "Você saiu da sua conta.")
     return redirect("chat:signin")
@@ -65,17 +59,12 @@ def logout_view(request):
 
 @login_required(login_url="chat:signin")
 def room_list(request):
-    """Lista todas as salas ativas"""
     rooms = Room.objects.filter(is_active=True)
     return render(request, "chat/room_list.html", {"rooms": rooms})
 
 
 @login_required(login_url="chat:signin")
 def join_room(request, room_id):
-    """Permite que o usuário entre em uma sala"""
-    room = get_object_or_404(Room, id=room_id, is_active=True)
-
-    # Salva o room_id na sessão
     request.session["room_id"] = room_id
 
     return redirect("chat:room_detail", room_id=room_id)
@@ -83,10 +72,8 @@ def join_room(request, room_id):
 
 @login_required(login_url="chat:signin")
 def room_detail(request, room_id):
-    """Exibe a sala de bate-papo"""
     room = get_object_or_404(Room, id=room_id, is_active=True)
 
-    # Verifica se o usuário entrou na sala
     if request.session.get("room_id") != room_id:
         messages.warning(request, "Por favor, entre na sala primeiro.")
         return redirect("chat:join_room", room_id=room_id)
@@ -103,7 +90,6 @@ def room_detail(request, room_id):
 
 @login_required(login_url="chat:signin")
 def leave_room(request):
-    """Permite que o usuário saia da sala"""
     if "room_id" in request.session:
         del request.session["room_id"]
 
@@ -113,23 +99,20 @@ def leave_room(request):
 
 @login_required(login_url="chat:signin")
 def direct_messages(request):
-    """Exibe a página de mensagens diretas"""
     return render(request, "chat/direct_messages.html")
 
 
 @login_required(login_url="chat:signin")
 def search_users(request):
-    """API para pesquisar usuários"""
     query = request.GET.get("q", "").strip()
-    
+
     if not query:
         return JsonResponse([], safe=False)
-    
-    # Pesquisar usuários (excluindo o próprio usuário)
+
     users = User.objects.filter(
         Q(username__icontains=query) | Q(first_name__icontains=query)
     ).exclude(id=request.user.id)[:10]
-    
+
     users_data = [
         {
             "id": user.id,
@@ -138,25 +121,22 @@ def search_users(request):
         }
         for user in users
     ]
-    
+
     return JsonResponse(users_data, safe=False)
 
 
 @login_required(login_url="chat:signin")
 def get_conversations(request):
-    """API para obter lista de conversas do usuário"""
-    # Buscar todas as mensagens diretas do usuário (enviadas ou recebidas)
+    # Buscar todas as mensagens diretas do usuário
     messages_query = Message.objects.filter(
-        Q(user=request.user, user_to__isnull=False) |
-        Q(user_to=request.user)
-    ).select_related('user', 'user_to')
-    
+        Q(user=request.user, user_to__isnull=False) | Q(user_to=request.user)
+    ).select_related("user", "user_to")
+
     # Agrupar por usuário e pegar a última mensagem
     conversations = {}
     for msg in messages_query:
-        # Determinar o outro usuário na conversa
         other_user = msg.user_to if msg.user == request.user else msg.user
-        
+
         if other_user.id not in conversations:
             conversations[other_user.id] = {
                 "user_id": other_user.id,
@@ -164,47 +144,48 @@ def get_conversations(request):
                 "first_name": other_user.first_name or other_user.username,
                 "last_message": msg.content[:50],
                 "timestamp": msg.timestamp,
-                "has_unread": False
+                "has_unread": False,
             }
         else:
             # Atualizar se esta mensagem for mais recente
             if msg.timestamp > conversations[other_user.id]["timestamp"]:
                 conversations[other_user.id]["last_message"] = msg.content[:50]
                 conversations[other_user.id]["timestamp"] = msg.timestamp
-        
+
         # Verificar se há mensagens não lidas
         if msg.user_to == request.user and not msg.is_read:
             conversations[other_user.id]["has_unread"] = True
-    
-    # Converter para lista e ordenar por timestamp
+
     conversations_list = list(conversations.values())
     conversations_list.sort(key=lambda x: x["timestamp"], reverse=True)
-    
-    # Converter timestamp para string
+
     for conv in conversations_list:
         conv["timestamp"] = conv["timestamp"].isoformat()
-    
+
     return JsonResponse(conversations_list, safe=False)
 
 
 @login_required(login_url="chat:signin")
 def get_direct_messages(request, user_id):
-    """API para obter histórico de mensagens diretas com um usuário"""
     other_user = get_object_or_404(User, id=user_id)
-    
+
     # Buscar mensagens entre os dois usuários
-    messages_query = Message.objects.filter(
-        (Q(user=request.user, user_to=other_user) |
-         Q(user=other_user, user_to=request.user))
-    ).select_related('user').order_by('timestamp')[:100]
-    
+    messages_query = (
+        Message.objects.filter(
+            (
+                Q(user=request.user, user_to=other_user)
+                | Q(user=other_user, user_to=request.user)
+            )
+        )
+        .select_related("user")
+        .order_by("timestamp")[:100]
+    )
+
     # Marcar mensagens como lidas
-    Message.objects.filter(
-        user=other_user,
-        user_to=request.user,
-        is_read=False
-    ).update(is_read=True)
-    
+    Message.objects.filter(user=other_user, user_to=request.user, is_read=False).update(
+        is_read=True
+    )
+
     messages_data = [
         {
             "id": msg.id,
@@ -212,9 +193,9 @@ def get_direct_messages(request, user_id):
             "username": msg.user.username,
             "content": msg.content,
             "timestamp": msg.timestamp.isoformat(),
-            "is_read": msg.is_read
+            "is_read": msg.is_read,
         }
         for msg in messages_query
     ]
-    
+
     return JsonResponse(messages_data, safe=False)
